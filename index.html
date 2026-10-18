@@ -105,6 +105,7 @@ input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
 .tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 #tabCount{font-weight:400;font-size:13px;font-variant-numeric:tabular-nums}
 .panel{display:grid;gap:28px}
+.admin{border-top:1px dashed var(--line);padding-top:16px}
 .linkbtn{font:inherit;font-size:13px;background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0}
 @media (prefers-reduced-motion:reduce){.result.done,.pname.done{animation:none}}
 .who{display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--muted)}
@@ -197,6 +198,13 @@ input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
   <section>
     <div class="foot"><h2 style="margin:0">최근 점심 기록</h2><button class="linkbtn" id="clearHist" type="button">기록 지우기</button></div>
     <ul class="history" id="history"></ul>
+  </section>
+
+  <section class="admin" id="adminBox" hidden>
+    <h2>관리자</h2>
+    <p class="hint" style="margin:0 0 10px">비밀 주소로 들어왔을 때만 보이는 메뉴예요.</p>
+    <button class="btn sm" type="button" id="adminReset">오늘 뽑기·기록, 최근 점심 기록 지우기</button>
+    <p class="hint" id="adminMsg"></p>
   </section>
 
 </div>
@@ -381,6 +389,21 @@ $("avoid").onchange=e=>{state.avoid=e.target.checked;render()};
 $("days").onchange=e=>{state.days=+e.target.value;render()};
 $("maxM").onchange=e=>{state.maxM=+e.target.value;render()};
 $("clearHist").onclick=()=>{state.history=[];render()};
+// 관리자 메뉴: 주소 끝에 ?admin=lunchboss 를 붙였을 때만 보임 (숨김일 뿐 잠금은 아님)
+if(new URLSearchParams(location.search).get("admin")==="lunchboss"){
+  $("adminBox").hidden=false;
+  $("adminReset").onclick=async()=>{
+    if(!confirm("오늘의 뽑기와 기록, 팀 전체의 최근 점심 기록을 지울까요? 되돌릴 수 없어요."))return;
+    const msg=t=>$("adminMsg").textContent=t;
+    $("adminReset").disabled=true;msg("지우는 중…");
+    try{
+      if(db){await db.doc("pick/current").delete();await db.doc("visits/recent").delete()}
+      else{delete state.shared;clearDay()}
+      state.history=[];render();msg("지웠어요.");
+    }catch(e){msg("지우지 못했어요. 잠시 후 다시 해 주세요.")}
+    $("adminReset").disabled=false;
+  };
+}
 
 let rolling=0,cur=null,db=null,user=null,myId=null,sharedList=false;
 const reduceMotion=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
