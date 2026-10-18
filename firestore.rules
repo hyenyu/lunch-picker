@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 점심 뽑기에서 쓰는 데이터만 읽고 쓸 수 있게 허용
+    match /{col}/{id} {
+      allow read, write: if col in ['places', 'pick', 'visits', 'locks', 'meta'];
+    }
+  }
+}

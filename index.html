@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>오늘 점심 뽑기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+[hidden]{display:none!important}
+body{margin:0}
+img{max-width:100%}
+/* Layout: 식권 발매기 — 큰 결과 티켓 하나, 그 아래 식당 목록과 기록 */
+:root{
+  --bg:#f3f1ec; --paper:#fffdf8; --ink:#22201c; --muted:#6f6a60; --line:#dcd6ca;
+  --accent:#d2491f; --accent-ink:#fff; --chip:#ebe6dc; --off:#b8b1a4;
+  --display:"Black Han Sans","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1a1916; --paper:#24221e; --ink:#efebe3; --muted:#a29b8e; --line:#3a3731;
+  --accent:#f0683d; --accent-ink:#1a1916; --chip:#2f2c27; --off:#5d584f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1a1916; --paper:#24221e; --ink:#efebe3; --muted:#a29b8e; --line:#3a3731;
+  --accent:#f0683d; --accent-ink:#1a1916; --chip:#2f2c27; --off:#5d584f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55}
+.wrap{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:28px 56px;display:grid;gap:28px}
+header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(28px,6vw,40px);margin:0;letter-spacing:-.01em}
+.date{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:700}
+
+/* ticket */
+.ticket{background:var(--paper);border:1px solid var(--line);border-radius:6px;position:relative;padding:28px 24px 22px;text-align:center}
+.ticket::before,.ticket::after{content:"";position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:var(--bg);border:1px solid var(--line);transform:translateY(-50%)}
+.ticket::before{left:-12px;clip-path:inset(0 0 0 50%)}
+.ticket::after{right:-12px;clip-path:inset(0 50% 0 0)}
+.tno{font-size:12px;color:var(--muted);letter-spacing:.12em;font-variant-numeric:tabular-nums}
+.result{font-family:var(--display);font-size:clamp(36px,10vw,64px);line-height:1.1;margin:14px 0 6px;min-height:1.1em;word-break:keep-all;overflow-wrap:anywhere}
+.result.rolling{color:var(--muted)}
+.result.done{color:var(--accent);animation:pop .35s ease-out}
+@keyframes pop{0%{transform:scale(.92)}60%{transform:scale(1.04)}100%{transform:scale(1)}}
+.meta{color:var(--muted);min-height:1.5em;font-size:14px}
+.picks{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:18px 0 10px;padding:0}
+@media (max-width:560px){.picks{grid-template-columns:1fr}}
+.pick{border:1px solid var(--line);border-radius:4px;padding:14px 10px;display:grid;gap:8px;align-content:start;min-width:0}
+.pick.chosen{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.pdec{font-size:12px;color:var(--accent);font-weight:700;min-height:1.2em}
+.pcat{font-size:12px;color:var(--muted);letter-spacing:.08em}
+.pname{font-family:var(--display);font-size:clamp(22px,4.4vw,28px);line-height:1.2;word-break:keep-all;overflow-wrap:anywhere;min-height:2.4em;display:grid;place-items:center}
+.pname.rolling{color:var(--muted)}
+.pname.done{color:var(--accent);animation:pop .35s ease-out}
+.pact{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.btn.sm{font-size:13px;padding:7px 10px}
+.perf{border-top:2px dashed var(--line);margin:20px -24px 18px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+.btn{font:inherit;font-weight:700;border:0;border-radius:4px;padding:12px 22px;cursor:pointer;background:var(--accent);color:var(--accent-ink);font-size:16px}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:500;font-size:14px;padding:10px 16px}
+.btn:focus-visible,.chip:focus-visible,input:focus-visible,select:focus-visible,.x:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.opts{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;margin-top:14px;font-size:13px;color:var(--muted)}
+.opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.opts select{font:inherit;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:2px 4px}
+
+/* filters */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:13px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* list */
+.add{display:grid;grid-template-columns:1fr 110px 190px auto;gap:8px;margin-bottom:12px}
+.add input,.add select{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:4px;background:var(--paper);color:var(--ink);min-width:0}
+@media (max-width:620px){.add{grid-template-columns:1fr 1fr}.add input,.add button{grid-column:1/-1}}
+ul{list-style:none;margin:0;padding:0}
+.list li{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.list li.off .nm{color:var(--off);text-decoration:line-through}
+.list li.far .nm{color:var(--off)}
+.list li.far .nm::after{content:"범위 밖";font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:3px;padding:0 5px;margin-left:8px;vertical-align:2px}
+.list li.recent .nm::after{content:"최근";font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:3px;padding:0 5px;margin-left:8px;vertical-align:2px}
+.nm{flex:1;min-width:0;overflow-wrap:anywhere}
+.addlabel{display:block;font-size:14px;font-weight:700;margin-bottom:6px}
+.maps{display:flex;gap:4px;flex-shrink:0}
+.maps a{font-size:12px;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:3px;padding:2px 7px;white-space:nowrap}
+.maps a:hover,.maps a:focus-visible{color:var(--accent);border-color:var(--accent);outline:none}
+.pick .maps{justify-content:center}
+.pname.rolling + .maps{visibility:hidden}
+.by{font-size:13px;color:var(--muted);margin-top:4px}
+.log-who{font-weight:700}
+.log-what{color:var(--muted);font-size:13px;display:block}
+@media (max-width:480px){.list li{flex-wrap:wrap}.list .nm{flex-basis:calc(100% - 70px)}.list .maps{margin-left:26px}}
+.cat{font-size:12px;background:var(--chip);color:var(--muted);border-radius:3px;padding:2px 8px;white-space:nowrap}
+.x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:4px 6px;border-radius:3px}
+.x:hover,.x.armed{color:var(--accent)}
+.x.armed{font-size:12px;font-weight:700;border:1px solid var(--accent)}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
+.hint{font-size:13px;color:var(--muted);margin:8px 0 0}
+.history li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dotted var(--line);font-size:14px}
+.history time{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.empty{color:var(--muted);font-size:14px;padding:10px 0}
+.foot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-top:-12px}
+.tab{font:inherit;font-size:15px;font-weight:700;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:10px 14px;cursor:pointer;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+#tabCount{font-weight:400;font-size:13px;font-variant-numeric:tabular-nums}
+.panel{display:grid;gap:28px}
+.linkbtn{font:inherit;font-size:13px;background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0}
+@media (prefers-reduced-motion:reduce){.result.done,.pname.done{animation:none}}
+.who{display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--muted)}
+.who b{color:var(--ink);font-weight:700}
+.nick-veil{position:fixed;inset:0;background:color-mix(in srgb,var(--ink) 45%,transparent);display:grid;place-items:center;padding:16px;z-index:10}
+.nick-card{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:24px 20px;width:min(360px,100%);display:grid;gap:12px}
+.nick-card h2{font-family:var(--display);font-weight:400;font-size:24px;letter-spacing:0;text-transform:none;color:var(--ink);margin:0}
+.nick-card p{margin:0;color:var(--muted);font-size:14px}
+.nick-card input{font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);min-width:0}
+.nick-card input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.nick-row{display:flex;gap:8px;justify-content:flex-end}
+.nick-err{color:var(--accent);font-size:13px;min-height:1.2em}
+.reasons{display:grid;gap:6px}
+.reasons label{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:4px;padding:10px 12px;cursor:pointer;font-size:14px}
+.reasons label:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.reasons input{accent-color:var(--accent)}
+.gone{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}
+.gone summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--muted)}
+.gone summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.gone .nm{color:var(--muted)}
+.gone-why{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.gone-why b{color:var(--accent);font-weight:700}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>오늘 점심 뽑기</h1>
+    <div class="who"><span class="date" id="today"></span><span id="whoBox" hidden>· <b id="whoName"></b>님 <button class="linkbtn" id="nickEdit" type="button">닉네임 바꾸기</button></span></div>
+  </header>
+
+  <div class="nick-veil" id="delVeil" hidden>
+    <form class="nick-card" id="delForm" role="dialog" aria-modal="true" aria-labelledby="delTitle">
+      <h2 id="delTitle">식당 삭제</h2>
+      <p><b id="delName"></b>을(를) 목록에서 지우는 이유를 골라 주세요. 이유는 다른 사람에게도 보여요.</p>
+      <div class="reasons" id="delReasons"></div>
+      <div class="nick-err" id="delErr"></div>
+      <div class="nick-row"><button class="btn ghost sm" type="button" id="delCancel">취소</button><button class="btn" type="submit">삭제하기</button></div>
+    </form>
+  </div>
+
+  <div class="nick-veil" id="nickVeil" hidden>
+    <form class="nick-card" id="nickForm" role="dialog" aria-modal="true" aria-labelledby="nickTitle">
+      <h2 id="nickTitle">닉네임을 정해 주세요</h2>
+      <p>뽑기 기록에 이 이름으로 남아요. 회원가입은 필요 없고, 이 브라우저가 기억해요.</p>
+      <label for="nickInput" class="addlabel" style="margin:0">닉네임 (최대 12자)</label>
+      <input id="nickInput" maxlength="12" autocomplete="nickname" placeholder="예: 혜인">
+      <div class="nick-err" id="nickErr"></div>
+      <div class="nick-row"><button class="btn ghost sm" type="button" id="nickCancel" hidden>취소</button><button class="btn" type="submit">시작하기</button></div>
+    </form>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-pick" aria-controls="panel-pick" aria-selected="true">점심 뽑기</button>
+    <button class="tab" role="tab" id="tab-list" aria-controls="panel-list" aria-selected="false">식당 목록 <span id="tabCount"></span></button>
+  </nav>
+
+<div class="panel" id="panel-pick" role="tabpanel" aria-labelledby="tab-pick">
+  <section>
+    <h2>오늘 땡기는 종류</h2>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <section class="ticket" aria-live="polite">
+    <div class="result" id="result">어디 갈까요?</div>
+    <ol class="picks" id="picks" hidden></ol>
+    <div class="meta" id="meta">뽑은 결과는 이 페이지를 여는 모두에게 똑같이 보여요</div>
+    <div class="perf"></div>
+    <div class="controls" id="sharedControls">
+      <button class="btn" id="spin">오늘 점심 뽑기</button>
+    </div>
+    <div class="by" id="by" hidden></div>
+    <div class="opts">
+      <label><input type="checkbox" id="avoid" checked> 최근
+        <select id="days"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="5">5</option></select>
+        일 안에 간 곳 빼기</label>
+      <label>회사에서
+        <select id="maxM"><option value="300">300m</option><option value="500">500m</option><option value="700">700m</option><option value="0">거리 제한 없이</option></select>
+        안</label>
+    </div>
+  </section>
+
+  <section>
+    <h2>오늘의 뽑기 기록</h2>
+    <ul class="history" id="log"></ul>
+    <p class="hint" style="margin:6px 0 0">누가 언제 뽑고 다시 뽑았는지 남아요. 기록은 오늘 하루만 보관되고 다음 날 새로 시작해요.</p>
+  </section>
+
+  <section>
+    <div class="foot"><h2 style="margin:0">최근 점심 기록</h2><button class="linkbtn" id="clearHist" type="button">기록 지우기</button></div>
+    <ul class="history" id="history"></ul>
+  </section>
+
+</div>
+
+<div class="panel" id="panel-list" role="tabpanel" aria-labelledby="tab-list" hidden>
+  <section>
+    <h2>식당 목록 <span id="count" style="letter-spacing:0;text-transform:none"></span></h2>
+    <label class="addlabel" for="newName">목록에 없는 식당 직접 추가</label>
+    <form class="add" id="addForm">
+      <input id="newName" placeholder="식당 이름 (지도에서 검색되는 이름으로)" autocomplete="off" required>
+      <select id="newCat"></select>
+      <select id="newDist" aria-label="회사에서 거리">
+        <option value="300">걸어서 5분 안 (~300m)</option>
+        <option value="500" selected>걸어서 7분쯤 (~500m)</option>
+        <option value="700">걸어서 10분쯤 (~700m)</option>
+        <option value="">거리 모름</option>
+      </select>
+      <button class="btn" type="submit" style="padding:10px 16px;font-size:14px">추가</button>
+    </form>
+    <ul class="list" id="list"></ul>
+    <details class="gone" id="goneBox" hidden>
+      <summary>삭제된 식당 <span id="goneCount"></span></summary>
+      <p class="hint" style="margin:6px 0 4px">누가 왜 지웠는지 모두에게 보여요. 잘못 지웠으면 되살릴 수 있어요. 없어진 식당은 되살리지 않아요.</p>
+      <ul class="list" id="goneList"></ul>
+    </details>
+    <p class="hint" id="listHint">체크를 끄면 뽑기 후보에서 잠시 빠져요 (휴무일, 웨이팅 심한 날 등). 식당 목록은 팀 전체가 함께 써요. 추가, 삭제, 체크 변경이 모두에게 바로 반영돼요.</p>
+  </section>
+
+  <div class="foot">
+    <span class="hint" style="margin:0" id="sampleNote">학동로9길 19 기준 회사 근처 식당이에요. 거리는 직선거리예요.</span>
+    <button class="linkbtn" id="reset" type="button">빠진 기본 식당 다시 채우기</button>
+  </div>
+</div>
+</div>
+
+<script type="module" src="store.js"></script>
+<script type="module">
+const CATS=["한식","중식","일식","양식","분식","아시안","기타"];
+// 강남구 학동로9길 19 기준 직선거리 약 800m 안, 점심 영업하는 곳 (Google 지도 검색, 2026-10-08)
+const SAMPLE=[
+  ["판교집 학동직영점","한식",400,"ChIJBQNWxO-jfDUROkicrcNcNus"],["고흥집","한식",410,"ChIJWfrnmOajfDURVCCadXRMykQ"],
+  ["현대순대국 2호점","한식",420,"ChIJycxfi6OjfDUR394OvZqrH6U"],["현지식당","한식",470,"ChIJ66B8G-GjfDURG8hPvJ8tnSI"],
+  ["현대순대국","한식",490,"ChIJQYM6tf-jfDURC2_b8uwOo-U"],["고봉당 논현역점","한식",560,"ChIJd080IYajfDURwN7T5IPCDmk"],
+  ["Wusm","한식",580,"ChIJibZh_-OjfDURxXzEenF8xIs"],["별미식당","한식",640,"ChIJN7LTHu6jfDURMsCPzsSzTSQ"],
+  ["동녘 (Dongnyeok)","한식",690,"ChIJG0CVNN6jfDURqMLX3ICmuQA"],["Haehwaog","한식",750,"ChIJV3Rie3yjfDURzykYxsi0iyg"],
+  ["갑기회관 강남본점","한식",760,"ChIJU6nzcQCjfDURY93YJ2zKEgk"],
+  ["Manseog","중식",270,"ChIJVwRvw2ajfDURyVq6rt9zbak"],["향방","중식",380,"ChIJMc9vUOijfDURxsSOAM0UvuI"],
+  ["홍명","중식",520,"ChIJi56G4fGjfDURQ-i4_kjsAvA"],["상해루 강남본점","중식",620,"ChIJf1G_cK2jfDURB2BIf4fLslw"],
+  ["우제홍 초밥","일식",530,"ChIJNQLGNgCjfDURCdT9xmla388"],["멘카오리 (Men Kaori)","일식",820,"ChIJV_mFQ1ajfDURRdz4tBgueSk"],
+  ["Pasta Trio","양식",460,"ChIJcUDjEhSjfDURcQAO9dpqRII"],["비스트로논현","양식",550,"ChIJcSU8NOKjfDURB2oLUpp0M9c"],
+  ["5B2F","양식",620,"ChIJzy6DWV-jfDUR7hBY9Yn4gA4"],
+  ["싸다김밥 신사역점","분식",410,"ChIJC1bzpXajfDURRD03d8M11Go"],["맛짱떡볶이","분식",580,"ChIJA3zkOVSjfDURvVZVPqWMt6o"],
+  ["싸다김밥 학동역점","분식",620,"ChIJPZ2-wSajfDURdoM3HPsxjuI"],["떡볶이공방","분식",640,"ChIJa4oi_eOjfDURlLXXbF94ujs"],
+  ["Hai Quán","아시안",390,"ChIJawawU7ijfDUR7MxCkbZMFWE"],["반피차이","아시안",460,"ChIJKU2ZPOSjfDUR8xAFQd7kha4"],
+  ["Quan An Dao","아시안",600,"ChIJ-SRL1OujfDURKL9-Dlrud2A"],
+  ["그린보이즈 샐러드&포케","기타",420,"ChIJDRVEFfmjfDURBMfrkApn18c"],["알로하포케 학동점","기타",570,"ChIJ5XYfOu6jfDUR8TS22a9-o3c"],
+  ["Poke all day 신사점","기타",670,"ChIJf3feRe6jfDURo7EhSr2FX-I"],["슬로우캘리 논현점","기타",770,"ChIJ67-0FDejfDURNOGHdnx_io0"]
+].map(([n,c,m,pid],i)=>({id:"g"+i,name:n,cat:c,m,pid,on:true}));
+// 저장된 목록에도 지도 정보 채워 넣기
+const PID=Object.fromEntries(SAMPLE.map(x=>[x.id,x.pid]));
+const KEY="lunch-picker-v2";
+// 사용자 식별: 브라우저마다 임의 ID + 닉네임 (나중에 일반 웹사이트로 옮겨도 같은 방식)
+const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+let CID=ls.get(KEY+"-cid");if(!CID){CID="c"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);ls.set(KEY+"-cid",CID)}
+let NICK=ls.get(KEY+"-nick")||"";
+let state={items:SAMPLE.map(x=>({...x})),history:[],filter:[],avoid:true,days:3,maxM:500,sample:true};
+try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.items))state={...state,...s}}catch(e){}
+state.items.forEach(i=>{if(!i.pid&&PID[i.id])i.pid=PID[i.id]});
+// 네이버 지도와 카카오맵 모두 식당 이름으로 검색해서 연결
+function mapLinks(i){
+  const q=i.name.replace(/\s*\(.*\)\s*$/,"");
+  const nv="https://map.naver.com/p/search/"+encodeURIComponent(q+" 논현동");
+  const kk="https://map.kakao.com/link/search/"+encodeURIComponent(q);
+  return `<span class="maps"><a href="${nv}" target="_blank" rel="noopener">네이버</a><a href="${kk}" target="_blank" rel="noopener">카카오</a></span>`;
+}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}};
+const $=id=>document.getElementById(id);
+const dayKey=d=>{const x=new Date(d);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0")};
+const now=new Date();
+$("today").textContent=now.toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"short"});
+$("newCat").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
+$("avoid").checked=state.avoid;$("days").value=String(state.days);$("maxM").value=String(state.maxM||0);
+
+// 최근 간 곳: 내가 결정한 곳 + 팀원이 결정한 곳(공유 기록 visits) 모두 포함
+let visits=[],sharedVisits=false;
+function recentIds(){
+  if(!state.avoid)return new Set();
+  const cut=Date.now()-state.days*864e5;
+  return new Set([...state.history,...visits].filter(h=>h.t>=cut).map(h=>h.id));
+}
+// 거리를 모르는 식당(m 없음)은 거리 제한과 상관없이 후보에 넣음
+const inRange=i=>!state.maxM||!i.m||i.m<=state.maxM;
+const alive=i=>!i.del;
+const REASONS={nolunch:"점심에 영업을 안해요",far:"너무 멀어요",notmeal:"점심식사 메뉴로 적합하지 않아요",taste:"맛이 없어요",closed:"식당이 없어졌어요"};
+function pool(){
+  return state.items.filter(i=>alive(i)&&i.on&&inRange(i)&&(!state.filter.length||state.filter.includes(i.cat)));
+}
+const rnd=a=>a[Math.floor(Math.random()*a.length)];
+// 종류를 먼저 고르고 그 안에서 가게를 골라, 가게 수가 많은 종류로 쏠리지 않게 함
+function choose(list,usedCats,usedIds,recent,avoidId){
+  const base=list.filter(i=>!usedIds.has(i.id));
+  const tiers=[i=>!usedCats.has(i.cat)&&!recent.has(i.id)&&i.id!==avoidId, i=>!usedCats.has(i.cat)&&i.id!==avoidId,
+    i=>!recent.has(i.id)&&i.id!==avoidId, i=>i.id!==avoidId, ()=>true];
+  for(const t of tiers){const c=base.filter(t);if(c.length){const cat=rnd([...new Set(c.map(i=>i.cat))]);return {item:rnd(c.filter(i=>i.cat===cat)),tier:tiers.indexOf(t)}}}
+  return null;
+}
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function render(){
+  const live=state.items.filter(alive),gone=state.items.filter(i=>!alive(i)).sort((a,b)=>(b.del.at||0)-(a.del.at||0));
+  const used=[...new Set(live.map(i=>i.cat))];
+  const cats=CATS.filter(c=>used.includes(c));
+  $("chips").innerHTML=`<button class="chip" data-c="" aria-pressed="${!state.filter.length}">전부 좋아</button>`+
+    cats.map(c=>`<button class="chip" data-c="${c}" aria-pressed="${state.filter.includes(c)}">${c}</button>`).join("");
+  const r=recentIds();
+  $("list").innerHTML=live.length?live.map(i=>`<li class="${i.on?"":"off"} ${inRange(i)?"":"far"} ${r.has(i.id)?"recent":""}">
+    <input type="checkbox" id="on-${i.id}" data-id="${i.id}" ${i.on?"checked":""} aria-label="${esc(i.name)} 후보에 포함">
+    <label class="nm" for="on-${i.id}">${esc(i.name)}</label><span class="cat">${i.cat}${i.m?" · "+i.m+"m":""}</span>${mapLinks(i)}
+    <button class="x" type="button" data-del="${i.id}" aria-label="${esc(i.name)} 삭제">×</button></li>`).join(""):`<li class="empty">아직 식당이 없어요. 위에서 추가해 주세요.</li>`;
+  $("tabCount").textContent=live.length;$("count").textContent=`· 후보 ${pool().length}곳 / 전체 ${live.length}곳`;
+  $("goneBox").hidden=!gone.length;$("goneCount").textContent=gone.length+"곳";
+  $("goneList").innerHTML="";
+  gone.forEach(i=>{
+    const li=document.createElement("li");
+    const nm=document.createElement("span");nm.className="nm";nm.textContent=i.name;
+    const why=document.createElement("span");why.className="gone-why";
+    const b=document.createElement("b");b.textContent=REASONS[i.del.r]||"이유 없음";
+    why.append(b,document.createTextNode(` · ${i.del.nick||"누군가"} · ${new Date(i.del.at).toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})}`));
+    nm.append(why);
+    const btn=document.createElement("button");btn.className="btn ghost sm";btn.type="button";btn.dataset.undel=i.id;btn.textContent="되살리기";
+    // 폐업한 식당은 되살릴 필요가 없어서 버튼을 숨김
+    if(i.del.r==="closed")li.append(nm);else li.append(nm,btn);
+    $("goneList").append(li);
+  });
+  const h=(sharedVisits?[...visits].sort((a,b)=>b.t-a.t):state.history).slice(0,10);
+  $("clearHist").hidden=sharedVisits;
+  $("history").innerHTML=h.length?h.map(x=>`<li><span>${esc(x.name)}${x.nick?` <span class="log-what" style="display:inline">· ${esc(x.nick)}</span>`:""}</span><time>${new Date(x.t).toLocaleDateString("ko-KR",{month:"numeric",day:"numeric",weekday:"short"})}</time></li>`).join(""):`<li class="empty">'여기로 결정'을 누르면 기록이 남고, 다음 뽑기에서 최근 간 곳을 빼 줘요.</li>`;
+  $("sampleNote").hidden=false;
+  save();
+}
+
+$("chips").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;const c=b.dataset.c;
+  if(!c)state.filter=[];else state.filter=state.filter.includes(c)?state.filter.filter(x=>x!==c):[...state.filter,c];render()};
+// 식당 목록: 공유 저장소가 있으면 팀 전체가 같은 목록을 씀 (places/<id>)
+const placeRef=id=>db.doc("places/"+id);
+function writeErr(e){$("listHint").textContent=e&&e.code==="invalid_argument"
+  ?"저장 권한이 없어요. 관리자에게 데이터베이스 규칙을 확인해 달라고 해 주세요."
+  :"저장하지 못했어요. 잠시 후 다시 해 주세요."}
+const placeBody=i=>({name:i.name,cat:i.cat,m:i.m||null,pid:i.pid||null,on:i.on!==false,o:i.o??0});
+$("list").onchange=e=>{const id=e.target.dataset.id;const it=state.items.find(i=>i.id===id);if(!it)return;it.on=e.target.checked;
+  if(sharedList)placeRef(id).update({on:it.on}).catch(writeErr);render()};
+// 삭제: 실제로 지우지 않고 이유·닉네임·시간을 남겨서 모두가 볼 수 있게 함
+let delId=null;
+$("delReasons").innerHTML=Object.entries(REASONS).map(([k,v])=>`<label><input type="radio" name="delWhy" value="${k}"> ${v}</label>`).join("");
+$("list").onclick=e=>{const b=e.target.closest("[data-del]");if(!b)return;
+  if(!NICK){openNick(false);return}
+  const it=state.items.find(i=>i.id===b.dataset.del);if(!it)return;delId=it.id;
+  $("delName").textContent=it.name;$("delErr").textContent="";
+  document.querySelectorAll('input[name="delWhy"]').forEach(x=>x.checked=false);
+  $("delVeil").hidden=false;setTimeout(()=>document.querySelector('input[name="delWhy"]').focus(),0)};
+$("delCancel").onclick=()=>{$("delVeil").hidden=true;delId=null};
+$("delForm").onsubmit=e=>{e.preventDefault();
+  const r=(document.querySelector('input[name="delWhy"]:checked')||{}).value;
+  if(!r){$("delErr").textContent="삭제하는 이유를 하나 골라 주세요.";return}
+  const it=state.items.find(i=>i.id===delId);$("delVeil").hidden=true;if(!it)return;
+  it.del={r,nick:NICK,cid:CID,at:Date.now()};state.sample=false;
+  if(sharedList)placeRef(it.id).update({del:it.del}).catch(writeErr);render()};
+$("goneList").onclick=e=>{const b=e.target.closest("[data-undel]");if(!b)return;
+  const it=state.items.find(i=>i.id===b.dataset.undel);if(!it)return;it.del=null;
+  if(sharedList)placeRef(it.id).update({del:null}).catch(writeErr);render()};
+$("addForm").onsubmit=e=>{e.preventDefault();const n=$("newName").value.trim();if(!n)return;
+  const it={id:"u"+Date.now().toString(36),name:n,cat:$("newCat").value,m:+$("newDist").value||null,on:true,o:Date.now()};
+  state.items.push(it);state.sample=false;$("newName").value="";
+  if(sharedList)placeRef(it.id).set(placeBody(it)).catch(writeErr);render();$("newName").focus()};
+$("reset").onclick=async()=>{
+  if(!sharedList){state.items=SAMPLE.map((x,o)=>({...x,o}));state.sample=true;state.filter=[];render();return}
+  const have=new Set(state.items.map(i=>i.id));
+  for(const [o,x] of SAMPLE.entries()){if(have.has(x.id))continue;
+    try{await placeRef(x.id).set(placeBody({...x,o}))}catch(e){writeErr(e);break}}
+};
+$("avoid").onchange=e=>{state.avoid=e.target.checked;render()};
+$("days").onchange=e=>{state.days=+e.target.value;render()};
+$("maxM").onchange=e=>{state.maxM=+e.target.value;render()};
+$("clearHist").onclick=()=>{state.history=[];render()};
+
+let rolling=0,cur=null,db=null,user=null,myId=null,sharedList=false;
+const reduceMotion=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
+const TODAY=dayKey(Date.now());
+const slim=i=>({id:i.id,name:i.name,cat:i.cat,m:i.m||null,pid:i.pid||null});
+const hm=t=>new Date(t).toLocaleTimeString("ko-KR",{hour:"numeric",minute:"2-digit"});
+// prev: 지금 보이는 후보들. '결정'된 곳(go)은 자리를 그대로 두고 나머지만 새로 뽑음
+function makePicks(prev=[]){
+  const list=pool();
+  const kept=[0,1,2].map(k=>prev[k]&&prev[k].go?prev[k]:null);
+  const keptIds=new Set(kept.filter(Boolean).map(p=>p.id)),prevIds=new Set(prev.map(p=>p.id));
+  let src=list.filter(i=>!prevIds.has(i.id));
+  const need=kept.filter(x=>!x).length;
+  if(src.length<need)src=list.filter(i=>!keptIds.has(i.id));
+  if(!src.length&&!keptIds.size)return null;
+  const r=recentIds(),out=[...kept];
+  const usedCats=new Set(kept.filter(Boolean).map(p=>p.cat)),usedIds=new Set(keptIds);
+  for(let k=0;k<3;k++){if(out[k])continue;
+    const c=choose(src,usedCats,usedIds,r);if(!c||usedIds.has(c.item.id))continue;
+    out[k]={...slim(c.item),go:null};usedCats.add(c.item.cat);usedIds.add(c.item.id)}
+  return out.filter(Boolean);
+}
+function noteFor(ps){
+  if(ps.length<3)return `후보가 ${ps.length}곳뿐이라 ${ps.length}곳만 골랐어요`;
+  if(new Set(ps.map(p=>p.cat)).size<3)return "고를 수 있는 종류가 3가지가 안 돼서 일부 종류가 겹쳐요";
+  return "";
+}
+function drawPicks(el,ps){
+  el.hidden=false;
+  el.innerHTML=ps.map((p,i)=>`<li class="pick${p.go?" chosen":""}" data-i="${i}">
+    <span class="pcat">${p.cat}${p.m?" · "+p.m+"m":""}</span><span class="pname done">${esc(p.name)}</span>${mapLinks(p)}
+    <span class="pdec"></span>
+    <span class="pact"><button class="btn sm${p.go?" ghost":""}" type="button" data-go="${i}">${p.go?"결정 취소":"여기로 결정"}</button></span></li>`).join("");
+  [...el.children].forEach((li,i)=>{const g=ps[i].go;if(g)li.querySelector(".pdec").textContent=(isMe(g)?"내가":(g.nick||"누군가")+"님이")+" 결정했어요"});
+  el._picks=ps;
+}
+// idxs: 애니메이션할 칸 번호 (없으면 전부)
+function animate(el,done,idxs){
+  const list=pool().length?pool():state.items.filter(alive);const ps=el._picks;
+  const lis=[...el.children].map((li,i)=>[li,i]).filter(([,i])=>!idxs||idxs.includes(i));
+  if(!lis.length){done&&done();return}
+  lis.forEach(([li,i],order)=>{
+    const nm=li.querySelector(".pname");rolling++;$("spin").disabled=true;nm.className="pname rolling";
+    let n=0;const steps=reduceMotion()?1:14+order*5;
+    (function tick(){
+      if(n<steps-1&&list.length){nm.textContent=rnd(list).name;n++;setTimeout(tick,40+n*n*1.1)}
+      else{nm.textContent=ps[i].name;nm.className="pname done";
+        if(--rolling===0){$("spin").disabled=false;done&&done()}}
+    })();
+  });
+}
+async function whoMap(ids){
+  ids=[...new Set(ids.filter(Boolean))];if(!ids.length||!user)return {};
+  try{return await user.profiles(ids)}catch(e){return {}}
+}
+const isMe=e=>(e.cid&&e.cid===CID)||(!e.cid&&e.by&&e.by===myId);
+const whoName=(ps,id)=>!id?"누군가":id===myId?"나":((ps[id]&&ps[id].name)||"누군가");
+const whoOf=(ps,e)=>e.nick?(isMe(e)?e.nick+" (나)":e.nick):whoName(ps,e.by);
+async function renderLog(){
+  const log=cur&&cur.day===TODAY&&Array.isArray(cur.log)?cur.log:[];
+  const ps=await whoMap(log.map(l=>l.by));
+  const el=$("log");
+  if(!log.length){el.innerHTML=`<li class="empty">아직 오늘 뽑은 사람이 없어요.</li>`;return}
+  el.innerHTML="";
+  [...log].reverse().forEach(l=>{
+    const li=document.createElement("li");
+    const left=document.createElement("span");
+    const w=document.createElement("span");w.className="log-who";w.textContent=whoOf(ps,l);
+    left.append(w,document.createTextNode(" · "+({"뽑기":"첫 뽑기"}[l.kind]||l.kind)));
+    const what=document.createElement("span");what.className="log-what";what.textContent=(l.names||[]).join(", ");
+    left.append(what);
+    const t=document.createElement("time");t.textContent=hm(l.at);
+    li.append(left,t);el.append(li);
+  });
+}
+// anim: true면 전부, 배열이면 그 칸만 애니메이션
+async function showDay(doc,anim){
+  cur=doc;
+  $("result").hidden=true;
+  drawPicks($("picks"),doc.picks);
+  const fin=()=>{$("meta").textContent=noteFor(doc.picks)||"모두에게 똑같이 보이는 오늘의 선택지예요. 여러 곳을 결정해도 돼요"};
+  if(anim)animate($("picks"),fin,Array.isArray(anim)?anim:null);else fin();
+  $("spin").textContent="다시 뽑기";
+  renderLog();
+  const last=[...(doc.log||[])].reverse().find(l=>l.kind==="뽑기"||l.kind==="다시 뽑기");
+  const ps=await whoMap([doc.by]);
+  $("by").hidden=false;
+  const lastE=last||{by:doc.by,cid:doc.byCid,nick:doc.byNick};
+  const who=lastE.nick?(isMe(lastE)?"내가":lastE.nick+"님이"):(whoName(ps,doc.by)==="나"?"내가":whoName(ps,doc.by)+"님이");
+  const anyGo=doc.picks.some(p=>p.go);
+  $("by").textContent=`${who} ${hm(doc.at)}에 ${last&&last.kind==="다시 뽑기"?"다시 뽑았어요":"뽑았어요"} · 다시 뽑으면 ${anyGo?"결정 안 된 곳만":"모두의 선택지가"} 바뀌어요`;
+}
+function clearDay(){
+  cur=null;$("picks").hidden=true;$("picks").innerHTML="";$("result").hidden=false;$("result").className="result";
+  $("result").textContent="어디 갈까요?";$("by").hidden=true;$("spin").textContent="오늘 점심 뽑기";
+  $("meta").textContent="뽑은 결과는 이 페이지를 여는 모두에게 똑같이 보여요";renderLog();
+}
+function noCandidates(){$("meta").textContent="후보가 없어요. 종류 필터를 풀거나 식당 목록에서 체크해 주세요"}
+// 오늘의 공동 문서를 안전하게 고치기 (동시에 누르면 한 명씩)
+async function mutateDay(fn){
+  if(!db){const doc=fn(cur&&cur.day===TODAY?cur:null);if(doc){state.shared=doc;save()}return doc}
+  const ref=db.doc("pick/current");
+  const lease=await ref.acquire({holder:CID,ttlMs:5000});
+  if(!lease.acquired)throw {code:"busy"};
+  const snap=await ref.get();const p=snap.exists?snap.data():null;
+  const doc=fn(p&&p.day===TODAY?p:null);
+  if(doc)await ref.set(doc);
+  return doc;
+}
+function dayErr(e){
+  $("meta").textContent=e&&e.code==="busy"?"다른 사람이 지금 바꾸고 있어요. 잠시 후 다시 눌러 주세요"
+    :e&&e.code==="invalid_argument"?"저장 권한이 없어요. 관리자에게 데이터베이스 규칙을 확인해 달라고 해 주세요"
+    :e&&e.code==="empty"?"후보가 없어요. 종류 필터를 풀거나 식당 목록에서 체크해 주세요"
+    :e&&e.code==="full"?"후보가 모두 결정됐어요. 결정을 취소하면 그 자리를 다시 뽑을 수 있어요"
+    :"저장하지 못했어요. 잠시 후 다시 눌러 주세요";
+}
+const entry=(kind,names)=>({by:myId,cid:CID,nick:NICK,at:Date.now(),kind,names});
+$("spin").onclick=async()=>{
+  if(rolling)return;
+  if(!NICK){openNick(false);return}
+  let changed=null;
+  $("spin").disabled=true;$("meta").textContent="뽑는 중…";
+  try{
+    const doc=await mutateDay(prev=>{
+      const old=prev?prev.picks:[];
+      if(old.length&&old.every(p=>p.go))throw {code:"full"};
+      const ps=makePicks(old);if(!ps||!ps.length)throw {code:"empty"};
+      changed=ps.map((p,k)=>(!old[k]||old[k].id!==p.id)?k:-1).filter(k=>k>=0);
+      const log=prev&&Array.isArray(prev.log)?prev.log:[];
+      return {day:TODAY,picks:ps,by:myId,byCid:CID,byNick:NICK,at:Date.now(),rev:(prev&&prev.rev||0)+1,
+        log:[...log,entry(log.some(l=>l.kind==="뽑기"||l.kind==="다시 뽑기")?"다시 뽑기":"뽑기",changed.map(k=>ps[k].name))].slice(-100)};
+    });
+    $("spin").disabled=false;if(doc)showDay(doc,changed);
+  }catch(e){$("spin").disabled=false;dayErr(e)}
+};
+// 여기로 결정: 여러 곳 가능, 다시 누르면 취소. 내가 결정한 곳은 내 점심 기록에도 남김
+// 팀 공유 점심 기록: 결정하면 추가, 취소하면 그날 기록 삭제. 14일 지난 기록은 정리
+async function saveVisit(pk,add){
+  const ref=db.doc("visits/recent");
+  await ref.acquire({holder:CID,ttlMs:4000}).catch(()=>{});
+  const snap=await ref.get();const old=snap.exists&&Array.isArray(snap.data().list)?snap.data().list:[];
+  const cut=Date.now()-14*864e5;
+  let list=old.filter(v=>v.t>=cut&&!(v.id===pk.id&&dayKey(v.t)===TODAY));
+  if(add)list.push({id:pk.id,name:pk.name,t:Date.now(),nick:NICK,cid:CID});
+  await ref.set({list});
+}
+async function decide(i){
+  if(!NICK){openNick(false);return}
+  let now=null,pk=null;
+  try{
+    const doc=await mutateDay(prev=>{
+      if(!prev||!prev.picks[i])return null;
+      const ps=prev.picks.map(p=>({...p}));pk=ps[i];
+      now=!pk.go;pk.go=now?{by:myId,cid:CID,nick:NICK,at:Date.now()}:null;
+      return {...prev,picks:ps,rev:(prev.rev||0)+1,log:[...(prev.log||[]),entry(now?"결정":"결정 취소",[pk.name])].slice(-100)};
+    });
+    if(!doc)return;
+    state.history=state.history.filter(h=>!(dayKey(h.t)===TODAY&&h.id===pk.id));
+    if(now)state.history.unshift({id:pk.id,name:pk.name,t:Date.now()});
+    state.history=state.history.slice(0,60);
+    if(db)saveVisit(pk,now).catch(()=>{});
+    render();
+    showDay(doc,false);
+  }catch(e){dayErr(e)}
+}
+$("picks").onclick=e=>{const b=e.target.closest("[data-go]");if(b&&!rolling)decide(+b.dataset.go)};
+// 공유 저장소 연결 (없으면 이 브라우저에서만 동작)
+if(state.shared&&state.shared.day===TODAY)showDay(state.shared,false);else renderLog();
+(async()=>{
+  try{user=await window.claude?.use("user");myId=user?await user.id():null}catch(e){}
+  try{db=await window.claude?.use("db")}catch(e){db=null}
+  if(!db)return;
+  if(state.shared){delete state.shared;save()}
+  const ref=db.doc("pick/current");
+  // 지난 날의 선택지와 기록은 지움
+  try{const g=await ref.get();if(g.exists&&(g.data()||{}).day!==TODAY)await ref.delete()}catch(e){}
+  ref.onSnapshot(snap=>{
+    const d=snap.exists?snap.data():null;
+    if(!d||d.day!==TODAY||!Array.isArray(d.picks)){if(cur)clearDay();return}
+    if(!cur||cur.at!==d.at||cur.by!==d.by||(cur.rev||0)!==(d.rev||0)){
+      const ch=cur&&!rolling?d.picks.map((p,k)=>(!cur.picks[k]||cur.picks[k].id!==p.id)?k:-1).filter(k=>k>=0):null;
+      showDay(d,ch&&ch.length?ch:false);
+    }
+  },()=>{});
+  db.doc("visits/recent").onSnapshot(snap=>{
+    sharedVisits=true;visits=snap.exists&&Array.isArray(snap.data().list)?snap.data().list:[];render();
+  },()=>{});
+  db.collection("places").onSnapshot(snap=>{
+    if(snap.empty&&snap.metadata.fromCache)return;
+    sharedList=true;state.sample=false;
+    state.items=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.o??0)-(b.o??0));
+    state.items.forEach(i=>{if(!i.pid&&PID[i.id])i.pid=PID[i.id]});
+    render();
+  },()=>{});
+})();
+// 닉네임 창
+function openNick(canCancel){
+  $("nickVeil").hidden=false;$("nickCancel").hidden=!canCancel;$("nickErr").textContent="";
+  $("nickInput").value=NICK;setTimeout(()=>$("nickInput").focus(),0);
+}
+function showWho(){$("whoBox").hidden=!NICK;$("whoName").textContent=NICK}
+$("nickForm").onsubmit=e=>{e.preventDefault();
+  const v=$("nickInput").value.replace(/\s+/g," ").trim();
+  if(!v){$("nickErr").textContent="닉네임을 한 글자 이상 입력해 주세요.";return}
+  NICK=v.slice(0,12);ls.set(KEY+"-nick",NICK);$("nickVeil").hidden=true;showWho();
+  if(cur)showDay(cur,false);
+};
+$("nickCancel").onclick=()=>{$("nickVeil").hidden=true};
+$("nickEdit").onclick=()=>openNick(true);
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;
+  if(!$("delVeil").hidden){$("delVeil").hidden=true;delId=null}
+  else if(!$("nickVeil").hidden&&NICK)$("nickVeil").hidden=true});
+showWho();if(!NICK)openNick(false);
+function showTab(name){
+  ["pick","list"].forEach(n=>{$("tab-"+n).setAttribute("aria-selected",n===name);$("panel-"+n).hidden=n!==name});
+  try{localStorage.setItem(KEY+"-tab",name)}catch(e){}
+}
+$("tab-pick").onclick=()=>showTab("pick");$("tab-list").onclick=()=>showTab("list");
+try{const t=localStorage.getItem(KEY+"-tab");if(t==="list")showTab("list")}catch(e){}
+render();
+</script>
+</body>
+</html>
