@@ -203,7 +203,10 @@ input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
   <section class="admin" id="adminBox" hidden>
     <h2>관리자</h2>
     <p class="hint" style="margin:0 0 10px">비밀 주소로 들어왔을 때만 보이는 메뉴예요.</p>
-    <button class="btn sm" type="button" id="adminReset">오늘 뽑기·기록, 최근 점심 기록 지우기</button>
+    <div class="controls" style="justify-content:flex-start">
+      <button class="btn sm" type="button" id="adminToday">오늘 뽑기·기록 지우기</button>
+      <button class="btn sm" type="button" id="adminVisits">최근 점심 기록 지우기</button>
+    </div>
     <p class="hint" id="adminMsg"></p>
   </section>
 
@@ -392,17 +395,20 @@ $("clearHist").onclick=()=>{state.history=[];render()};
 // 관리자 메뉴: 주소 끝에 ?admin=lunchboss 를 붙였을 때만 보임 (숨김일 뿐 잠금은 아님)
 if(new URLSearchParams(location.search).get("admin")==="lunchboss"){
   $("adminBox").hidden=false;
-  $("adminReset").onclick=async()=>{
-    if(!confirm("오늘의 뽑기와 기록, 팀 전체의 최근 점심 기록을 지울까요? 되돌릴 수 없어요."))return;
-    const msg=t=>$("adminMsg").textContent=t;
-    $("adminReset").disabled=true;msg("지우는 중…");
-    try{
-      if(db){await db.doc("pick/current").delete();await db.doc("visits/recent").delete()}
-      else{delete state.shared;clearDay()}
-      state.history=[];render();msg("지웠어요.");
-    }catch(e){msg("지우지 못했어요. 잠시 후 다시 해 주세요.")}
-    $("adminReset").disabled=false;
+  const msg=t=>$("adminMsg").textContent=t;
+  const run=async(btn,q,fn)=>{
+    if(!confirm(q))return;
+    btn.disabled=true;msg("지우는 중…");
+    try{await fn();render();msg("지웠어요.")}catch(e){msg("지우지 못했어요. 잠시 후 다시 해 주세요.")}
+    btn.disabled=false;
   };
+  $("adminToday").onclick=()=>run($("adminToday"),"오늘의 뽑기 결과와 오늘 기록을 지울까요? 되돌릴 수 없어요.",async()=>{
+    if(db)await db.doc("pick/current").delete();else{delete state.shared;clearDay()}
+  });
+  $("adminVisits").onclick=()=>run($("adminVisits"),"팀 전체의 최근 점심 기록을 지울까요? 되돌릴 수 없어요.",async()=>{
+    if(db)await db.doc("visits/recent").delete();
+    state.history=[];
+  });
 }
 
 let rolling=0,cur=null,db=null,user=null,myId=null,sharedList=false;
